@@ -1,0 +1,27 @@
+# Public BitTorrent Trackers List
+# These are reliable public trackers that can be used with the YouTube Torrent Downloader
+
+# Primary Trackers
+udp://tracker.opentrackr.org:1337/announce
+udp://open.tracker.cl:1337/announce
+udp://9.rarbg.com:2810/announce
+udp://tracker.torrent.eu.org:451/announce
+udp://tracker.openbittorrent.com:6969/announce
+
+# Backup Trackers
+udp://open.demonii.com:1337/announce
+udp://exodus.desync.com:6969/announce
+udp://tracker.moeking.me:6969/announce
+udp://tracker.bitsearch.to:1337/announce
+udp://tracker.tiny-vps.com:6969/announce
+
+# More Options
+udp://tracker.opentrackr.org:1337/announce
+udp://tracker.internetwarriors.net:1337/announce
+udp://tracker.leechers-paradise.org:6969/announce
+udp://tracker.coppersurfer.tk:6969/announce
+udp://open.demonii.si:1337/announce
+
+# How to use:
+# In settings.py, set multiple trackers in a comma-separated list like:
+# TRACKER = "udp://tracker.opentrackr.org:1337/announce,udp://tracker.openbittorrent.com:6969/announce"

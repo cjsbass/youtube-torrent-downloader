@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YouTube Torrent Icon Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            margin: 10px;
+        }
+        .icons {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>YouTube Torrent Icon Generator</h1>
+    <div class="icons">
+        <div>
+            <h3>16x16</h3>
+            <canvas id="icon16" width="16" height="16"></canvas>
+        </div>
+        <div>
+            <h3>48x48</h3>
+            <canvas id="icon48" width="48" height="48"></canvas>
+        </div>
+        <div>
+            <h3>128x128</h3>
+            <canvas id="icon128" width="128" height="128"></canvas>
+        </div>
+    </div>
+    
+    <p>Right-click each icon and select "Save image as..." to save as PNG.</p>
+    
+    <script>
+        function drawIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext("2d");
+            
+            // Background
+            ctx.fillStyle = "#FF0000"; // YouTube red
+            ctx.fillRect(0, 0, size, size);
+            
+            // Draw torrent symbol (simplified)
+            ctx.fillStyle = "white";
+            
+            // Down arrow
+            const arrowWidth = size * 0.4;
+            const arrowHeight = size * 0.3;
+            const arrowX = (size - arrowWidth) / 2;
+            const arrowY = size * 0.2;
+            
+            // Arrow stem
+            ctx.fillRect(size/2 - size*0.05, arrowY, size*0.1, arrowHeight);
+            
+            // Arrow head
+            ctx.beginPath();
+            ctx.moveTo(arrowX, arrowY + arrowHeight * 0.6);
+            ctx.lineTo(arrowX + arrowWidth, arrowY + arrowHeight * 0.6);
+            ctx.lineTo(size/2, arrowY + arrowHeight);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Rectangle at bottom
+            ctx.fillRect(size * 0.2, size * 0.6, size * 0.6, size * 0.25);
+            
+            // Dots in rectangle
+            const dotSize = size * 0.06;
+            const dotY = size * 0.6 + size * 0.25 / 2;
+            
+            ctx.fillStyle = "#FF0000";
+            ctx.beginPath();
+            ctx.arc(size * 0.3, dotY, dotSize, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(size * 0.5, dotY, dotSize, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        // Draw icons
+        window.onload = function() {
+            drawIcon("icon16", 16);
+            drawIcon("icon48", 48);
+            drawIcon("icon128", 128);
+        };
+    </script>
+</body>
+</html>
