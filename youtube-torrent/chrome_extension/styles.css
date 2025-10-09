@@ -1,0 +1,81 @@
+#download-as-torrent-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #ff0000;
+  color: white;
+  border: none;
+  border-radius: 18px;
+  padding: 8px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-left: 8px;
+  transition: background-color 0.2s ease;
+}
+
+#download-as-torrent-btn:hover {
+  background-color: #cc0000;
+}
+
+#download-as-torrent-btn:disabled {
+  background-color: #999;
+  cursor: not-allowed;
+}
+
+#download-as-torrent-btn.error {
+  background-color: #cc0000;
+}
+
+#download-as-torrent-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Error popup styles */
+#yt-torrent-error {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+}
+
+#yt-torrent-error .error-popup {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+#yt-torrent-error h3 {
+  color: #cc0000;
+  margin-top: 0;
+  font-size: 18px;
+}
+
+#yt-torrent-error p {
+  color: #333;
+  margin-bottom: 20px;
+}
+
+#yt-torrent-error button {
+  background-color: #cc0000;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  float: right;
+}
+
+#yt-torrent-error button:hover {
+  background-color: #990000;
+}
