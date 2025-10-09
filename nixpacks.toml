@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkgs = ["python39", "postgresql"]
+
+[phases.install]
+cmds = ["cd youtube-torrent/backend && pip install -r requirements.txt"]
+
+[phases.build]
+cmds = ["echo 'Build phase complete'"]
+
+[start]
+cmd = "cd youtube-torrent/backend && gunicorn api.app:app --bind 0.0.0.0:$PORT"
+

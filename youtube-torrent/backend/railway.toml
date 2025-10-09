@@ -1,0 +1,22 @@
+[build]
+builder = "NIXPACKS"
+buildCommand = "pip install -r requirements.txt"
+
+[deploy]
+startCommand = "gunicorn api.app:app --bind 0.0.0.0:$PORT"
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+healthcheckPath = "/api/health"
+healthcheckTimeout = 100
+
+[env]
+# Environment variables are set via Railway CLI or dashboard
+# These are just placeholders for documentation
+# API_KEY = "set-via-railway-cli"
+# MEDIA_DIR = "/srv/media"
+# TORRENTS_DIR = "/srv/torrents"
+# BASE_URL = "https://your-domain.railway.app/torrents"
+# TRACKER = "udp://tracker.opentrackr.org:1337/announce"
+# MAX_STORAGE_GB = "5"
+# CLEANUP_THRESHOLD_GB = "4.5"
+
