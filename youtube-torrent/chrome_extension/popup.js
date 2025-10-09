@@ -4,15 +4,23 @@ const apiKeyInput = document.getElementById('api-key');
 const saveButton = document.getElementById('save-settings');
 const statusDiv = document.getElementById('status');
 
+// Default configuration
+const DEFAULT_API_URL = 'https://youtube-torrent-api-production.up.railway.app';
+const DEFAULT_API_KEY = 'a22a0390f46cdf18754c9c6d172a2432e1a9f39cc1d04266813ea94dfab2b56b';
+
 // Load saved settings when popup opens
 document.addEventListener('DOMContentLoaded', () => {
   chrome.storage.sync.get(['apiUrl', 'apiKey'], (result) => {
-    if (result.apiUrl) {
-      apiUrlInput.value = result.apiUrl;
-    }
+    // Use stored values or defaults
+    apiUrlInput.value = result.apiUrl || DEFAULT_API_URL;
+    apiKeyInput.value = result.apiKey || DEFAULT_API_KEY;
     
-    if (result.apiKey) {
-      apiKeyInput.value = result.apiKey;
+    // Also make sure the default values are saved if none exist
+    if (!result.apiUrl || !result.apiKey) {
+      chrome.storage.sync.set({
+        apiUrl: DEFAULT_API_URL,
+        apiKey: DEFAULT_API_KEY
+      });
     }
   });
 });

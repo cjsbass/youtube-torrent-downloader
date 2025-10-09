@@ -1,0 +1,40 @@
+name: Deploy to Railway
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "youtube-torrent/backend/**"
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+      
+      - name: Install Railway CLI
+        run: npm install -g @railway/cli
+      
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          cd youtube-torrent/backend
+          railway up --detach
+      
+      - name: Get Railway URL
+        if: success()
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          echo "Deployment successful! Your API is available at:"
+          railway domain
+

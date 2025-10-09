@@ -10,13 +10,38 @@ function addTorrentButton() {
     return;
   }
 
-  // Find the YouTube share buttons container
-  const shareButtons = document.querySelector('ytd-button-renderer#share-button');
+  console.log('YouTube Torrent: Attempting to add button...');
+
+  // Try multiple selectors for the YouTube share button (YouTube's UI changes frequently)
+  const selectors = [
+    'ytd-button-renderer#share-button',
+    'button[aria-label="Share"]',
+    '#top-level-buttons-computed ytd-button-renderer:nth-child(3)',
+    '.ytd-menu-renderer button[aria-label="Share"]',
+    '#actions #button-shape button',
+    '#actions-inner button'
+  ];
+
+  let shareButtons = null;
+  for (const selector of selectors) {
+    shareButtons = document.querySelector(selector);
+    if (shareButtons) {
+      console.log('YouTube Torrent: Found button with selector:', selector);
+      break;
+    }
+  }
+
   if (!shareButtons) {
+    console.log('YouTube Torrent: Share button not found, retrying in 2 seconds...');
     // If we can't find the share button, retry after a short delay
-    setTimeout(addTorrentButton, 1000);
+    setTimeout(addTorrentButton, 2000);
     return;
   }
+
+  // Create our button container to match YouTube's style
+  const torrentContainer = document.createElement('div');
+  torrentContainer.style.display = 'inline-block';
+  torrentContainer.style.marginLeft = '8px';
 
   // Create the "Download as Torrent" button
   const torrentButton = document.createElement('button');
@@ -35,10 +60,43 @@ function addTorrentButton() {
 
   // Add click event listener
   torrentButton.addEventListener('click', handleTorrentDownload);
+  
+  // Add the button to our container
+  torrentContainer.appendChild(torrentButton);
 
-  // Insert the button after the share button
-  const parentElement = shareButtons.parentElement;
-  parentElement.insertBefore(torrentButton, shareButtons.nextSibling);
+  // Try different insertion methods
+  try {
+    // Try method 1: Insert after share button
+    const parentElement = shareButtons.parentElement;
+    if (parentElement) {
+      parentElement.insertBefore(torrentContainer, shareButtons.nextSibling);
+      console.log('YouTube Torrent: Button added successfully (method 1)');
+      return;
+    }
+    
+    // Try method 2: Insert next to share button
+    const grandParent = shareButtons.parentElement?.parentElement;
+    if (grandParent) {
+      grandParent.appendChild(torrentContainer);
+      console.log('YouTube Torrent: Button added successfully (method 2)');
+      return;
+    }
+
+    // Try method 3: Find the actions container
+    const actionsContainer = document.querySelector('#actions') || 
+                             document.querySelector('#menu-container') ||
+                             document.querySelector('ytd-menu-renderer');
+    if (actionsContainer) {
+      actionsContainer.appendChild(torrentContainer);
+      console.log('YouTube Torrent: Button added successfully (method 3)');
+      return;
+    }
+  } catch (e) {
+    console.error('YouTube Torrent: Error adding button:', e);
+  }
+
+  console.log('YouTube Torrent: Could not add button, will retry in 3 seconds');
+  setTimeout(addTorrentButton, 3000);
 }
 
 // Function to handle the torrent download
@@ -53,17 +111,29 @@ async function handleTorrentDownload() {
     button.innerHTML = 'Processing...';
     button.disabled = true;
     
+    // Default configuration
+    const DEFAULT_API_URL = 'https://youtube-torrent-api-production.up.railway.app';
+    const DEFAULT_API_KEY = 'a22a0390f46cdf18754c9c6d172a2432e1a9f39cc1d04266813ea94dfab2b56b';
+    
     // Get API settings from Chrome storage
     const settings = await new Promise((resolve) => {
       chrome.storage.sync.get(['apiUrl', 'apiKey'], resolve);
     });
     
+    // Use stored values or defaults
+    const apiUrl = settings.apiUrl || DEFAULT_API_URL;
+    const apiKey = settings.apiKey || DEFAULT_API_KEY;
+    
+    // Save defaults if none exist
     if (!settings.apiUrl || !settings.apiKey) {
-      throw new Error('Please configure the API URL and API Key in the extension settings');
+      chrome.storage.sync.set({
+        apiUrl: DEFAULT_API_URL,
+        apiKey: DEFAULT_API_KEY
+      });
     }
     
     // Send request to the backend API
-    const apiEndpoint = `${settings.apiUrl.replace(/\/$/, '')}/api/add`;
+    const apiEndpoint = `${apiUrl.replace(/\/$/, '')}/api/add`;
     let response;
     try {
       response = await Promise.race([
@@ -71,7 +141,7 @@ async function handleTorrentDownload() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-API-Key': settings.apiKey
+            'X-API-Key': apiKey
           },
           body: JSON.stringify({ url: videoUrl })
         }),
@@ -162,17 +232,36 @@ async function handleTorrentDownload() {
   }
 }
 
-// Run when the page loads
-window.addEventListener('load', addTorrentButton);
+// Initialize the extension
+function initExtension() {
+  console.log('YouTube Torrent: Extension initialized');
+  
+  // Run immediately
+  addTorrentButton();
+  
+  // Run when page is fully loaded
+  window.addEventListener('load', addTorrentButton);
 
-// Also run when navigation occurs (for YouTube's SPA behavior)
-let lastUrl = location.href;
-new MutationObserver(() => {
-  if (location.href !== lastUrl) {
-    lastUrl = location.href;
-    setTimeout(addTorrentButton, 1000);
-  }
-}).observe(document, { subtree: true, childList: true });
+  // Also run when navigation occurs (for YouTube's SPA behavior)
+  let lastUrl = location.href;
+  new MutationObserver(() => {
+    if (location.href !== lastUrl) {
+      console.log('YouTube Torrent: URL changed from', lastUrl, 'to', location.href);
+      lastUrl = location.href;
+      // Try multiple times as YouTube loads its UI dynamically
+      setTimeout(addTorrentButton, 1000);
+      setTimeout(addTorrentButton, 2000);
+      setTimeout(addTorrentButton, 4000);
+    }
+  }).observe(document, { subtree: true, childList: true });
+  
+  // Run periodically to handle dynamic content loading
+  setInterval(addTorrentButton, 5000);
+}
+
+// Start the extension
+console.log('YouTube Torrent: Content script loaded');
+initExtension();
 
 // Listen for messages from popup
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
