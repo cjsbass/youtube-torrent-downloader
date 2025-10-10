@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  youtube-torrent-api:
+    build: .
+    container_name: youtube-torrent-api
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - API_KEY=a22a0390f46cdf18754c9c6d172a2432e1a9f39cc1d04266813ea94dfab2b56b
+      - MEDIA_DIR=/srv/media
+      - TORRENTS_DIR=/srv/torrents
+      - BASE_URL=http://66.135.18.227/torrents
+      - TRACKER=udp://tracker.opentrackr.org:1337/announce,udp://open.tracker.cl:1337/announce,udp://tracker.openbittorrent.com:6969/announce
+      - MAX_STORAGE_GB=20
+      - CLEANUP_THRESHOLD_GB=15
+    volumes:
+      - media-data:/srv/media
+      - torrent-data:/srv/torrents
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  media-data:
+  torrent-data:
+

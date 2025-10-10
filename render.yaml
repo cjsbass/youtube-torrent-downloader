@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: youtube-torrent-api
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn api.app:app --bind 0.0.0.0:$PORT
+    envVars:
+      - key: API_KEY
+        value: a22a0390f46cdf18754c9c6d172a2432e1a9f39cc1d04266813ea94dfab2b56b
+      - key: MEDIA_DIR
+        value: /tmp/media
+      - key: TORRENTS_DIR
+        value: /tmp/torrents
+      - key: TRACKER
+        value: udp://tracker.opentrackr.org:1337/announce,udp://open.tracker.cl:1337/announce,udp://tracker.openbittorrent.com:6969/announce
+      - key: MAX_STORAGE_GB
+        value: 5
+      - key: CLEANUP_THRESHOLD_GB
+        value: 4.5
+      - key: BASE_URL
+        generateValue: true
+        sync: false
+    rootDir: youtube-torrent/backend
+    healthCheckPath: /api/health

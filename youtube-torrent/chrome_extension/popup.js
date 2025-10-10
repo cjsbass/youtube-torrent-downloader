@@ -5,7 +5,7 @@ const saveButton = document.getElementById('save-settings');
 const statusDiv = document.getElementById('status');
 
 // Default configuration
-const DEFAULT_API_URL = 'https://youtube-torrent-api-production.up.railway.app';
+const DEFAULT_API_URL = 'http://66.135.18.227';
 const DEFAULT_API_KEY = 'a22a0390f46cdf18754c9c6d172a2432e1a9f39cc1d04266813ea94dfab2b56b';
 
 // Load saved settings when popup opens
