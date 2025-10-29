@@ -148,7 +148,7 @@ def download_video(url, progress_callback=None):
     
     # Download the video with progress tracking
     # Check if cookies file exists
-    cookies_file = os.path.join(os.path.dirname(__file__), "..", "youtube_cookies.txt")
+    cookies_file = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "youtube_cookies.txt"))
     
     ydl_opts = {
         "format": "best",
@@ -158,11 +158,16 @@ def download_video(url, progress_callback=None):
     }
     
     # Use cookies if available
+    logger.info(f"Checking for cookies at: {cookies_file}")
+    logger.info(f"Cookies file exists: {os.path.exists(cookies_file)}")
+    
     if os.path.exists(cookies_file):
-        logger.info("Using YouTube cookies for authentication")
+        logger.info(f"Using YouTube cookies for authentication from {cookies_file}")
         ydl_opts["cookiefile"] = cookies_file
+        # Also try cookies parameter as alternative
+        ydl_opts["cookiesfrombrowser"] = None  # Don't use browser cookies
     else:
-        logger.warning("No cookies file found - downloads may fail for some videos")
+        logger.warning(f"No cookies file found at {cookies_file} - downloads may fail for some videos")
         # Fallback to Android client
         ydl_opts["extractor_args"] = {
             "youtube": {
