@@ -5,22 +5,26 @@
   gap: 8px;
   background-color: #ff0000 !important;
   color: white !important;
-  border: 2px solid white !important;
-  border-radius: 18px;
-  padding: 12px 20px !important;
-  font-size: 16px !important;
+  border: 3px solid white !important;
+  border-radius: 30px;
+  padding: 16px 24px !important;
+  font-size: 18px !important;
   font-weight: 700 !important;
   cursor: pointer;
-  margin-left: 16px !important;
-  transition: background-color 0.2s ease;
-  z-index: 9999 !important;
-  position: relative !important;
-  min-width: 200px !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.3) !important;
+  transition: all 0.3s ease;
+  z-index: 999999 !important;
+  position: fixed !important;
+  bottom: 20px !important;
+  right: 20px !important;
+  min-width: 250px !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5) !important;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.3) !important;
 }
 
 #download-as-torrent-btn:hover {
-  background-color: #cc0000;
+  background-color: #cc0000 !important;
+  transform: scale(1.05) !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.6) !important;
 }
 
 #download-as-torrent-btn:disabled {

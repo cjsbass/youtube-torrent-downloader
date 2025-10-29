@@ -38,12 +38,7 @@ function addTorrentButton() {
     return;
   }
 
-  // Create our button container to match YouTube's style
-  const torrentContainer = document.createElement('div');
-  torrentContainer.style.display = 'inline-block';
-  torrentContainer.style.marginLeft = '8px';
-
-  // Create the "Download as Torrent" button
+  // Create the "Download as Torrent" button - FLOATING BUTTON
   const torrentButton = document.createElement('button');
   torrentButton.id = 'download-as-torrent-btn';
   torrentButton.className = 'torrent-download-btn';
@@ -61,42 +56,9 @@ function addTorrentButton() {
   // Add click event listener
   torrentButton.addEventListener('click', handleTorrentDownload);
   
-  // Add the button to our container
-  torrentContainer.appendChild(torrentButton);
-
-  // Try different insertion methods
-  try {
-    // Try method 1: Insert after share button
-    const parentElement = shareButtons.parentElement;
-    if (parentElement) {
-      parentElement.insertBefore(torrentContainer, shareButtons.nextSibling);
-      console.log('YouTube Torrent: Button added successfully (method 1)');
-      return;
-    }
-    
-    // Try method 2: Insert next to share button
-    const grandParent = shareButtons.parentElement?.parentElement;
-    if (grandParent) {
-      grandParent.appendChild(torrentContainer);
-      console.log('YouTube Torrent: Button added successfully (method 2)');
-      return;
-    }
-
-    // Try method 3: Find the actions container
-    const actionsContainer = document.querySelector('#actions') || 
-                             document.querySelector('#menu-container') ||
-                             document.querySelector('ytd-menu-renderer');
-    if (actionsContainer) {
-      actionsContainer.appendChild(torrentContainer);
-      console.log('YouTube Torrent: Button added successfully (method 3)');
-      return;
-    }
-  } catch (e) {
-    console.error('YouTube Torrent: Error adding button:', e);
-  }
-
-  console.log('YouTube Torrent: Could not add button, will retry in 3 seconds');
-  setTimeout(addTorrentButton, 3000);
+  // Add directly to body as a floating button (always visible!)
+  document.body.appendChild(torrentButton);
+  console.log('YouTube Torrent: Floating button added successfully');
 }
 
 // Function to handle the torrent download
