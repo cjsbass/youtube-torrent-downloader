@@ -74,7 +74,7 @@ async function handleTorrentDownload() {
     button.disabled = true;
     
     // Default configuration
-    const DEFAULT_API_URL = 'http://66.135.31.40';
+    const DEFAULT_API_URL = 'https://seafood-kits-softball-accounting.trycloudflare.com';
     const DEFAULT_API_KEY = 'a22a0390f46cdf18754c9c6d172a2432e1a9f39cc1d04266813ea94dfab2b56b';
     
     // Get API settings from Chrome storage
