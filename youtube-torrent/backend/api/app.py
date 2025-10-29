@@ -147,18 +147,24 @@ def download_video(url, progress_callback=None):
     output_path = os.path.join(MEDIA_DIR, filename)
     
     # Download the video with progress tracking
+    # Use mobile client to avoid bot detection
     ydl_opts = {
-        "format": "best",
+        "format": "best[height<=720]",  # Lower quality is less likely to trigger bot detection
         "outtmpl": f"{output_path}.%(ext)s",
         "quiet": True,
         "progress_hooks": [progress_hook] if progress_callback else [],
         "extractor_args": {
             "youtube": {
-                "player_client": ["android", "web"],
+                "player_client": ["android"],
+                "player_skip": ["webpage", "configs"],
                 "skip": ["dash", "hls"]
             }
         },
-        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        "http_headers": {
+            "User-Agent": "com.google.android.youtube/19.09.36 (Linux; U; Android 13) gzip",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us,en;q=0.5"
+        }
     }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
