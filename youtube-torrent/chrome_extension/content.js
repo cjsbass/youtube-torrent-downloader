@@ -133,50 +133,71 @@ async function handleTorrentDownload() {
       throw new Error(data.error || 'Unknown error');
     }
     
-    // Start tracking progress via Server-Sent Events
+    // Start tracking progress via polling
     const jobId = data.job_id;
     const progressUrl = `${apiUrl.replace(/\/$/, '')}/api/progress/${jobId}`;
     
-    const eventSource = new EventSource(progressUrl);
-    
-    eventSource.onmessage = function(event) {
-      const progress = JSON.parse(event.data);
-      
-      if (progress.status === 'downloading') {
-        const percent = progress.percent || 0;
-        const speed = progress.speed_mbps || 0;
-        const eta = progress.eta_seconds || 0;
-        button.innerHTML = `Downloading... ${percent.toFixed(0)}% (${speed.toFixed(1)} MB/s, ETA: ${Math.floor(eta/60)}m ${eta%60}s)`;
-      } else if (progress.status === 'creating_torrent') {
-        button.innerHTML = 'Creating torrent...';
-      } else if (progress.status === 'seeding') {
-        button.innerHTML = 'Starting seeding...';
-      } else if (progress.status === 'complete') {
-        eventSource.close();
-        
-        // Download the torrent file
-        chrome.runtime.sendMessage({
-          action: 'download',
-          url: progress.torrent_url,
-          filename: `${progress.video_title}.torrent`
+    // Poll for progress every second
+    const pollInterval = setInterval(async () => {
+      try {
+        const progressResponse = await fetch(progressUrl, {
+          headers: { 'X-API-Key': apiKey }
         });
         
-        // Reset button state with success message
-        button.innerHTML = 'Torrent Ready!';
-        setTimeout(() => {
-          button.innerHTML = originalContent;
-          button.disabled = false;
-        }, 3000);
-      } else if (progress.status === 'error') {
-        eventSource.close();
-        throw new Error(progress.error || 'Processing failed');
+        if (!progressResponse.ok) {
+          clearInterval(pollInterval);
+          throw new Error('Failed to get progress updates');
+        }
+        
+        // The response is SSE format, get just the data
+        const text = await progressResponse.text();
+        const dataMatch = text.match(/data: (.+)/);
+        if (!dataMatch) return;
+        
+        const progress = JSON.parse(dataMatch[1]);
+        
+        if (progress.status === 'downloading') {
+          const percent = progress.percent || 0;
+          const speed = progress.speed_mbps || 0;
+          const eta = progress.eta_seconds || 0;
+          const etaMin = Math.floor(eta/60);
+          const etaSec = Math.floor(eta%60);
+          button.innerHTML = `Downloading... ${percent.toFixed(0)}% (${speed.toFixed(1)} MB/s, ${etaMin}m ${etaSec}s)`;
+        } else if (progress.status === 'creating_torrent') {
+          button.innerHTML = 'Creating torrent...';
+        } else if (progress.status === 'seeding') {
+          button.innerHTML = 'Starting seeding...';
+        } else if (progress.status === 'complete') {
+          clearInterval(pollInterval);
+          
+          // Download the torrent file
+          chrome.runtime.sendMessage({
+            action: 'download',
+            url: progress.torrent_url,
+            filename: `${progress.video_title}.torrent`
+          });
+          
+          // Reset button state with success message
+          button.innerHTML = 'Torrent Ready!';
+          setTimeout(() => {
+            button.innerHTML = originalContent;
+            button.disabled = false;
+          }, 3000);
+        } else if (progress.status === 'error') {
+          clearInterval(pollInterval);
+          throw new Error(progress.error || 'Processing failed');
+        }
+      } catch (pollError) {
+        clearInterval(pollInterval);
+        console.error('Progress polling error:', pollError);
       }
-    };
+    }, 1000); // Poll every second
     
-    eventSource.onerror = function(error) {
-      eventSource.close();
-      throw new Error('Lost connection to server');
-    };
+    // Timeout after 30 minutes
+    setTimeout(() => {
+      clearInterval(pollInterval);
+      throw new Error('Download timeout - process took too long');
+    }, 1800000);
     
   } catch (error) {
     console.error('Error downloading torrent:', error);
