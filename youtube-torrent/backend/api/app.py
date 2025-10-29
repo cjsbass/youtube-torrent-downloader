@@ -9,9 +9,12 @@ import logging
 from pathlib import Path
 from urllib.parse import quote
 
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, Response, stream_with_context
 from flask_cors import CORS
 import yt_dlp
+import json
+import threading
+from queue import Queue
 
 # Import configuration
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -83,6 +86,23 @@ def cleanup_old_files():
 # Run cleanup check at startup
 cleanup_old_files()
 
+# Global progress tracking
+progress_store = {}
+progress_lock = threading.Lock()
+
+def update_progress(job_id, data):
+    """Update progress for a specific job"""
+    with progress_lock:
+        progress_store[job_id] = {
+            **data,
+            'timestamp': time.time()
+        }
+
+def get_progress(job_id):
+    """Get progress for a specific job"""
+    with progress_lock:
+        return progress_store.get(job_id, {'status': 'not_found'})
+
 
 def authenticate():
     api_key = request.headers.get('X-API-Key')
@@ -97,31 +117,50 @@ def sanitize_filename(filename):
     return safe_filename[:100].strip()
 
 
-def download_video(url):
-    """Download YouTube video using yt-dlp"""
+def download_video(url, progress_callback=None):
+    """Download YouTube video using yt-dlp with progress tracking"""
     video_info = {}
+    
+    # Progress hook for yt-dlp
+    def progress_hook(d):
+        if progress_callback and d['status'] == 'downloading':
+            percent = d.get('downloaded_bytes', 0) / d.get('total_bytes', 1) * 100
+            speed = d.get('speed', 0)
+            eta = d.get('eta', 0)
+            progress_callback({
+                'status': 'downloading',
+                'percent': round(percent, 1),
+                'speed_mbps': round(speed / 1024 / 1024, 2) if speed else 0,
+                'eta_seconds': eta
+            })
     
     # Get video info first
     with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
         info = ydl.extract_info(url, download=False)
         video_info["title"] = sanitize_filename(info.get("title", "video"))
         video_info["id"] = info.get("id", str(uuid.uuid4()))
+        video_info["duration"] = info.get("duration", 0)
+        video_info["filesize"] = info.get("filesize", 0) or info.get("filesize_approx", 0)
     
     # Generate unique filename
     filename = f"{video_info['title']}-{video_info['id']}"
     output_path = os.path.join(MEDIA_DIR, filename)
     
-    # Download the video
+    # Download the video with progress tracking
     ydl_opts = {
         "format": "best",
         "outtmpl": f"{output_path}.%(ext)s",
         "quiet": True,
+        "progress_hooks": [progress_hook] if progress_callback else [],
     }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
         video_info["filepath"] = f"{output_path}.{info['ext']}"
         video_info["filename"] = f"{filename}.{info['ext']}"
+    
+    if progress_callback:
+        progress_callback({'status': 'complete', 'percent': 100})
     
     return video_info
 
@@ -194,6 +233,22 @@ def add_to_transmission(torrent_path):
         return False
 
 
+@app.route("/api/progress/<job_id>", methods=["GET"])
+def progress_stream(job_id):
+    """Stream download progress via Server-Sent Events"""
+    def generate():
+        while True:
+            progress = get_progress(job_id)
+            yield f"data: {json.dumps(progress)}\n\n"
+            
+            if progress.get('status') in ['complete', 'error', 'not_found']:
+                break
+            
+            time.sleep(0.5)  # Update every 500ms
+    
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+
 @app.route("/api/add", methods=["POST"])
 def add_video():
     if not authenticate():
@@ -206,6 +261,9 @@ def add_video():
         logger.warning("Missing URL in request")
         return jsonify({"error": "URL is required"}), 400
     
+    # Generate job ID for progress tracking
+    job_id = str(uuid.uuid4())
+    
     # Check available disk space before processing
     available_space_gb = check_disk_space(MEDIA_DIR)
     if available_space_gb < 1.0:  # Require at least 1GB free
@@ -216,68 +274,76 @@ def add_video():
         if check_disk_space(MEDIA_DIR) < 1.0:
             return jsonify({"error": "Server storage full. Please try again later."}), 507
     
-    try:
-        url = data["url"]
-        logger.info(f"Processing video request: {url}")
-        
-        # Download the YouTube video
+    # Start processing in background thread
+    def process_video():
         try:
-            video_info = download_video(url)
+            url = data["url"]
+            logger.info(f"Processing video request: {url}")
+            
+            update_progress(job_id, {'status': 'starting', 'percent': 0, 'message': 'Initializing download...'})
+            
+            # Download the YouTube video with progress tracking
+            try:
+                def progress_cb(progress_data):
+                    update_progress(job_id, progress_data)
+                
+                video_info = download_video(url, progress_callback=progress_cb)
+            except Exception as e:
+                logger.error(f"Video download failed: {str(e)}")
+                update_progress(job_id, {'status': 'error', 'error': f"Failed to download video: {str(e)}"})
+                return
+        
+            update_progress(job_id, {'status': 'creating_torrent', 'percent': 90, 'message': 'Creating torrent file...'})
+            
+            # Create torrent file
+            try:
+                torrent_path = create_torrent(video_info["filepath"], video_info["filename"])
+            except Exception as e:
+                logger.error(f"Torrent creation failed: {str(e)}")
+                update_progress(job_id, {'status': 'error', 'error': f"Failed to create torrent file: {str(e)}"})
+                return
+            
+            # Add to transmission for seeding (non-critical operation)
+            update_progress(job_id, {'status': 'seeding', 'percent': 95, 'message': 'Starting seeding...'})
+            transmission_success = False
+            try:
+                transmission_success = add_to_transmission(torrent_path)
+            except Exception as e:
+                logger.warning(f"Non-critical: Transmission seeding failed: {str(e)}")
+            
+            # Get the filename of the torrent
+            torrent_filename = os.path.basename(torrent_path)
+            
+            # Generate the download URL
+            torrent_url = f"{BASE_URL}/{quote(torrent_filename)}"
+            
+            # Mark as complete
+            update_progress(job_id, {
+                'status': 'complete',
+                'percent': 100,
+                'message': 'Complete!',
+                'torrent_url': torrent_url,
+                'video_title': video_info["title"],
+                'seeding': transmission_success
+            })
+            
+            logger.info(f"Successfully processed video: {video_info['title']}")
+            
         except Exception as e:
-            logger.error(f"Video download failed: {str(e)}")
-            return jsonify({
-                "error": f"Failed to download video: {str(e)}"
-            }), 400
-        
-        # Create torrent file
-        try:
-            torrent_path = create_torrent(video_info["filepath"], video_info["filename"])
-        except Exception as e:
-            logger.error(f"Torrent creation failed: {str(e)}")
-            return jsonify({
-                "error": f"Failed to create torrent file: {str(e)}"
-            }), 500
-        
-        # Add to transmission for seeding (non-critical operation)
-        # If this fails, we still return success with the torrent file
-        transmission_success = False
-        try:
-            transmission_success = add_to_transmission(torrent_path)
-        except Exception as e:
-            logger.warning(f"Non-critical: Transmission seeding failed: {str(e)}")
-        
-        # Get the filename of the torrent
-        torrent_filename = os.path.basename(torrent_path)
-        
-        # Generate the download URL
-        torrent_url = f"{BASE_URL}/{quote(torrent_filename)}"
-        
-        response = {
-            "success": True,
-            "torrent_url": torrent_url,
-            "video_title": video_info["title"],
-            "seeding": transmission_success
-        }
-        
-        logger.info(f"Successfully processed video: {video_info['title']}")
-        return jsonify(response)
-        
-    except yt_dlp.utils.DownloadError as e:
-        error_message = str(e)
-        logger.error(f"YouTube download error: {error_message}")
-        
-        if "Video unavailable" in error_message:
-            return jsonify({"error": "Video is unavailable or private"}), 400
-        elif "This video is available for premium users only" in error_message:
-            return jsonify({"error": "This video requires a premium account"}), 403
-        else:
-            return jsonify({"error": f"Download error: {error_message}"}), 400
-        
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}", exc_info=True)
-        return jsonify({
-            "error": f"Server error: {str(e)}"
-        }), 500
+            logger.error(f"Unexpected error: {str(e)}", exc_info=True)
+            update_progress(job_id, {'status': 'error', 'error': f"Server error: {str(e)}"})
+    
+    # Start background thread
+    thread = threading.Thread(target=process_video)
+    thread.daemon = True
+    thread.start()
+    
+    # Return job ID immediately for progress tracking
+    return jsonify({
+        "success": True,
+        "job_id": job_id,
+        "message": "Processing started. Use /api/progress/{job_id} to track progress."
+    })
 
 
 @app.route("/torrents/<path:filename>")

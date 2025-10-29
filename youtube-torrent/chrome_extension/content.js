@@ -167,23 +167,54 @@ async function handleTorrentDownload() {
     
     const data = await response.json();
     
-    if (!data.success) {
+    if (!data.success || !data.job_id) {
       throw new Error(data.error || 'Unknown error');
     }
     
-    // Download the torrent file
-    chrome.runtime.sendMessage({
-      action: 'download',
-      url: data.torrent_url,
-      filename: `${data.video_title}.torrent`
-    });
+    // Start tracking progress via Server-Sent Events
+    const jobId = data.job_id;
+    const progressUrl = `${apiUrl.replace(/\/$/, '')}/api/progress/${jobId}`;
     
-    // Reset button state with success message
-    button.innerHTML = 'Torrent Ready!';
-    setTimeout(() => {
-      button.innerHTML = originalContent;
-      button.disabled = false;
-    }, 3000);
+    const eventSource = new EventSource(progressUrl);
+    
+    eventSource.onmessage = function(event) {
+      const progress = JSON.parse(event.data);
+      
+      if (progress.status === 'downloading') {
+        const percent = progress.percent || 0;
+        const speed = progress.speed_mbps || 0;
+        const eta = progress.eta_seconds || 0;
+        button.innerHTML = `Downloading... ${percent.toFixed(0)}% (${speed.toFixed(1)} MB/s, ETA: ${Math.floor(eta/60)}m ${eta%60}s)`;
+      } else if (progress.status === 'creating_torrent') {
+        button.innerHTML = 'Creating torrent...';
+      } else if (progress.status === 'seeding') {
+        button.innerHTML = 'Starting seeding...';
+      } else if (progress.status === 'complete') {
+        eventSource.close();
+        
+        // Download the torrent file
+        chrome.runtime.sendMessage({
+          action: 'download',
+          url: progress.torrent_url,
+          filename: `${progress.video_title}.torrent`
+        });
+        
+        // Reset button state with success message
+        button.innerHTML = 'Torrent Ready!';
+        setTimeout(() => {
+          button.innerHTML = originalContent;
+          button.disabled = false;
+        }, 3000);
+      } else if (progress.status === 'error') {
+        eventSource.close();
+        throw new Error(progress.error || 'Processing failed');
+      }
+    };
+    
+    eventSource.onerror = function(error) {
+      eventSource.close();
+      throw new Error('Lost connection to server');
+    };
     
   } catch (error) {
     console.error('Error downloading torrent:', error);
