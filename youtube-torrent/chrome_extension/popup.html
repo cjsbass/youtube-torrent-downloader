@@ -24,12 +24,14 @@
       font-weight: bold;
     }
     
-    input[type="text"] {
+    input[type="text"], textarea {
       width: 100%;
       padding: 8px;
       border: 1px solid #ccc;
       border-radius: 4px;
       box-sizing: border-box;
+      font-family: monospace;
+      font-size: 12px;
     }
     
     button {
@@ -77,6 +79,18 @@
   </div>
   
   <button id="save-settings">Save Settings</button>
+  
+  <hr style="margin: 20px 0;">
+  
+  <div class="form-group">
+    <label for="cookies">YouTube Cookies (Optional - for reliability)</label>
+    <textarea id="cookies" rows="4" placeholder="Paste cookies in Netscape format here..."></textarea>
+    <small style="color: #666; font-size: 11px;">
+      Export cookies from Chrome using "Get cookies.txt LOCALLY" extension
+    </small>
+  </div>
+  
+  <button id="upload-cookies">Upload Cookies</button>
   
   <div id="status" class="status" style="display: none;"></div>
   

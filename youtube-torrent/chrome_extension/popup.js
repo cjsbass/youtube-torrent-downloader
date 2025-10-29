@@ -2,6 +2,8 @@
 const apiUrlInput = document.getElementById('api-url');
 const apiKeyInput = document.getElementById('api-key');
 const saveButton = document.getElementById('save-settings');
+const cookiesInput = document.getElementById('cookies');
+const uploadCookiesButton = document.getElementById('upload-cookies');
 const statusDiv = document.getElementById('status');
 
 // Default configuration
@@ -58,6 +60,45 @@ saveButton.addEventListener('click', () => {
       }
     });
   });
+});
+
+// Upload cookies when button is clicked
+uploadCookiesButton.addEventListener('click', async () => {
+  const apiUrl = apiUrlInput.value.trim();
+  const apiKey = apiKeyInput.value.trim();
+  const cookies = cookiesInput.value.trim();
+  
+  if (!apiUrl || !apiKey) {
+    showStatus('Please save API settings first', false);
+    return;
+  }
+  
+  if (!cookies) {
+    showStatus('Please paste cookies first', false);
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${apiUrl.replace(/\/$/, '')}/api/upload-cookies`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': apiKey
+      },
+      body: JSON.stringify({ cookies })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      showStatus('Cookies uploaded successfully!', true);
+      cookiesInput.value = '';  // Clear the textarea
+    } else {
+      showStatus(data.error || 'Upload failed', false);
+    }
+  } catch (error) {
+    showStatus('Failed to upload cookies: ' + error.message, false);
+  }
 });
 
 // Helper function to show status messages

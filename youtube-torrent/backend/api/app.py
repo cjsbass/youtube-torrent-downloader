@@ -147,25 +147,30 @@ def download_video(url, progress_callback=None):
     output_path = os.path.join(MEDIA_DIR, filename)
     
     # Download the video with progress tracking
-    # Use mobile client to avoid bot detection
+    # Check if cookies file exists
+    cookies_file = os.path.join(os.path.dirname(__file__), "..", "youtube_cookies.txt")
+    
     ydl_opts = {
-        "format": "best[height<=720]",  # Lower quality is less likely to trigger bot detection
+        "format": "best",
         "outtmpl": f"{output_path}.%(ext)s",
         "quiet": True,
         "progress_hooks": [progress_hook] if progress_callback else [],
-        "extractor_args": {
+    }
+    
+    # Use cookies if available
+    if os.path.exists(cookies_file):
+        logger.info("Using YouTube cookies for authentication")
+        ydl_opts["cookiefile"] = cookies_file
+    else:
+        logger.warning("No cookies file found - downloads may fail for some videos")
+        # Fallback to Android client
+        ydl_opts["extractor_args"] = {
             "youtube": {
                 "player_client": ["android"],
                 "player_skip": ["webpage", "configs"],
                 "skip": ["dash", "hls"]
             }
-        },
-        "http_headers": {
-            "User-Agent": "com.google.android.youtube/19.09.36 (Linux; U; Android 13) gzip",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-us,en;q=0.5"
         }
-    }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         info = ydl.extract_info(url, download=True)
@@ -408,16 +413,53 @@ def health_check():
         }), 500
 
 
+@app.route("/api/upload-cookies", methods=["POST"])
+def upload_cookies():
+    """Upload YouTube cookies for authentication"""
+    if not authenticate():
+        logger.warning("Unauthorized cookie upload attempt")
+        return jsonify({"error": "Unauthorized"}), 401
+    
+    data = request.get_json()
+    
+    if not data or "cookies" not in data:
+        return jsonify({"error": "Cookies data is required"}), 400
+    
+    try:
+        cookies_file = os.path.join(os.path.dirname(__file__), "..", "youtube_cookies.txt")
+        
+        # Save cookies to file
+        with open(cookies_file, "w") as f:
+            f.write(data["cookies"])
+        
+        logger.info("YouTube cookies updated successfully")
+        
+        return jsonify({
+            "success": True,
+            "message": "Cookies uploaded successfully",
+            "cookie_count": len(data["cookies"].split('\n'))
+        })
+        
+    except Exception as e:
+        logger.error(f"Cookie upload failed: {str(e)}")
+        return jsonify({"error": f"Failed to upload cookies: {str(e)}"}), 500
+
+
 @app.route("/", methods=["GET"])
 def index():
     """Root endpoint with basic info"""
+    cookies_file = os.path.join(os.path.dirname(__file__), "..", "youtube_cookies.txt")
+    cookies_exist = os.path.exists(cookies_file)
+    
     return jsonify({
         "name": "YouTube Torrent API",
         "description": "An API for downloading YouTube videos as torrents",
         "version": "1.0.0",
+        "cookies_configured": cookies_exist,
         "endpoints": {
             "/api/add": "POST - Add a YouTube video",
             "/api/health": "GET - Health check",
+            "/api/upload-cookies": "POST - Upload YouTube cookies",
             "/torrents/{filename}": "GET - Download a torrent file"
         }
     })
